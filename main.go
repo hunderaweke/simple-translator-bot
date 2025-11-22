@@ -60,10 +60,39 @@ func main() {
 		MaxRoutines: ext.DefaultMaxRoutines,
 	})
 	updater := ext.NewUpdater(dispatcher, &ext.UpdaterOpts{})
-	dispatcher.AddHandler(handlers.NewMessage(func(msg *gotgbot.Message) bool { return true }, func(b *gotgbot.Bot, ctx *ext.Context) error {
+	dispatcher.AddHandler(handlers.NewCommand("help", func(b *gotgbot.Bot, ctx *ext.Context) error {
+		_, err := b.SendMessage(ctx.Message.From.Id, "To use me, send a message in the following format:\n\n`sourceLanguage->targetLanguage The text you want to translate`\n\nFor example:\n`English->French Hello, how are you?`", &gotgbot.SendMessageOpts{
+			ParseMode: "MarkdownV2",
+		})
+		if err != nil {
+			return fmt.Errorf("failed to send help message: %w", err)
+		}
+		return nil
+	}))
+	dispatcher.AddHandler(handlers.NewMessage(func(msg *gotgbot.Message) bool {
+		return !strings.HasPrefix(msg.Text, "/")
+	}, func(b *gotgbot.Bot, ctx *ext.Context) error {
 		parts := strings.Split(ctx.Message.Text, " ")
+		if len(parts) < 2 {
+			_, err := b.SendMessage(ctx.Message.From.Id, "Invalid format. Please use the format: `sourceLanguage->targetLanguage text`.\n\nFor more information, use the /help command.", &gotgbot.SendMessageOpts{
+				ParseMode: "MarkdownV2",
+			})
+			if err != nil {
+				return fmt.Errorf("failed to send invalid format message: %w", err)
+			}
+			return nil
+		}
 		text := strings.Join(parts[1:], " ")
 		languages := strings.Split(parts[0], "->")
+		if len(languages) != 2 {
+			_, err := b.SendMessage(ctx.Message.From.Id, "Invalid language format. Please use `sourceLanguage->targetLanguage`.\n\nFor more information, use the /help command.", &gotgbot.SendMessageOpts{
+				ParseMode: "MarkdownV2",
+			})
+			if err != nil {
+				return fmt.Errorf("failed to send invalid language format message: %w", err)
+			}
+			return nil
+		}
 		prompt := fmt.Sprintf(template, languages[0], languages[1], languages[0], languages[1], text)
 		_, err := bot.SendChatAction(ctx.Message.From.Id, "typing", &gotgbot.SendChatActionOpts{})
 		if err != nil {

@@ -60,6 +60,15 @@ func main() {
 		MaxRoutines: ext.DefaultMaxRoutines,
 	})
 	updater := ext.NewUpdater(dispatcher, &ext.UpdaterOpts{})
+	dispatcher.AddHandler(handlers.NewCommand("start", func(b *gotgbot.Bot, ctx *ext.Context) error {
+		_, err := b.SendMessage(ctx.Message.From.Id, "Hello\\! I'm your friendly AI translator bot\\.\n\nTo get started, just send me a message like this:\n`English->Spanish Hello world`\n\nFor more details, use the /help command\\.", &gotgbot.SendMessageOpts{
+			ParseMode: "MarkdownV2",
+		})
+		if err != nil {
+			return fmt.Errorf("failed to send start message: %w", err)
+		}
+		return nil
+	}))
 	dispatcher.AddHandler(handlers.NewCommand("help", func(b *gotgbot.Bot, ctx *ext.Context) error {
 		_, err := b.SendMessage(ctx.Message.From.Id, "To use me, send a message in the following format:\n\n`sourceLanguage->targetLanguage The text you want to translate`\n\nFor example:\n`English->French Hello, how are you?`", &gotgbot.SendMessageOpts{
 			ParseMode: "MarkdownV2",

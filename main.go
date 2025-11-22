@@ -81,24 +81,31 @@ func main() {
 	dispatcher.AddHandler(handlers.NewMessage(func(msg *gotgbot.Message) bool {
 		return !strings.HasPrefix(msg.Text, "/")
 	}, func(b *gotgbot.Bot, ctx *ext.Context) error {
-		parts := strings.Split(ctx.Message.Text, " ")
-		if len(parts) < 2 {
+		var text string
+		var languages []string
+
+		// New logic to handle spaces around "->"
+		if strings.Contains(ctx.Message.Text, "->") {
+			parts := strings.SplitN(ctx.Message.Text, "->", 2)
+			langParts := strings.Fields(parts[0])
+			if len(langParts) > 0 {
+				sourceLang := langParts[len(langParts)-1]
+
+				textParts := strings.Fields(parts[1])
+				if len(textParts) > 0 {
+					targetLang := textParts[0]
+					languages = []string{sourceLang, targetLang}
+					text = strings.Join(textParts[1:], " ")
+				}
+			}
+		}
+
+		if len(languages) != 2 || text == "" {
 			_, err := b.SendMessage(ctx.Message.From.Id, "Invalid format. Please use the format: `sourceLanguage->targetLanguage text`.\n\nFor more information, use the /help command.", &gotgbot.SendMessageOpts{
 				ParseMode: "MarkdownV2",
 			})
 			if err != nil {
 				return fmt.Errorf("failed to send invalid format message: %w", err)
-			}
-			return nil
-		}
-		text := strings.Join(parts[1:], " ")
-		languages := strings.Split(parts[0], "->")
-		if len(languages) != 2 {
-			_, err := b.SendMessage(ctx.Message.From.Id, "Invalid language format. Please use `sourceLanguage->targetLanguage`.\n\nFor more information, use the /help command.", &gotgbot.SendMessageOpts{
-				ParseMode: "MarkdownV2",
-			})
-			if err != nil {
-				return fmt.Errorf("failed to send invalid language format message: %w", err)
 			}
 			return nil
 		}

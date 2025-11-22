@@ -40,18 +40,86 @@ FORMATTING RULES:
 INPUT TEXT
 [%s]`
 
+type botHandler struct {
+    bot    *gotgbot.Bot
+    client *genai.Client
+    logger *slog.Logger
+}
+
+func (h *botHandler) StartCommand(b *gotgbot.Bot, ctx *ext.Context) error {
+    _, err := b.SendMessage(ctx.Message.From.Id, "Hello\\! I'm your friendly AI translator bot\\.\n\nTo get started, just send me a message like this:\n`Spanish Hello world`\n\nI automatically detect the language of your text\\! For more details, use the /help command\\.", &gotgbot.SendMessageOpts{
+        ParseMode: "MarkdownV2",
+    })
+    if err != nil {
+        return fmt.Errorf("failed to send start message: %w", err)
+    }
+    return nil
+}
+
+func (h *botHandler) HelpCommand(b *gotgbot.Bot, ctx *ext.Context) error {
+    _, err := b.SendMessage(ctx.Message.From.Id, "To use me, send a message in the following format:\n\n`targetLanguage The text you want to translate`\n\n*I automatically detect the source language\\.*\n\nFor example:\n`French How are you?`\n\nYou can also use language codes:\n`es ¿Cómo estás?`", &gotgbot.SendMessageOpts{
+        ParseMode: "MarkdownV2",
+    })
+    if err != nil {
+        return fmt.Errorf("failed to send help message: %w", err)
+    }
+    return nil
+}
+
+func (h *botHandler) getTranslation(ctx context.Context, target, text string) (string, error) {
+    res, err := h.client.Models.GenerateContent(ctx, "gemini-2.5-flash", genai.Text(fmt.Sprintf(template, target, text)), nil)
+    if err != nil {
+        return "", err
+    }
+    return res.Text(), nil
+}
+
+func (h *botHandler) MessageHandler(b *gotgbot.Bot, ctx *ext.Context) error {
+    parts := strings.SplitN(ctx.Message.Text, " ", 2)
+    if len(parts) < 2 {
+        _, err := b.SendMessage(ctx.Message.From.Id, "Invalid format\\. Please use the format: `targetLanguage text`\\.\n\nFor more information, use the /help command\\.", &gotgbot.SendMessageOpts{
+            ParseMode: "MarkdownV2",
+        })
+        if err != nil {
+            return fmt.Errorf("failed to send invalid format message: %w", err)
+        }
+        return nil
+    }
+
+    targetLanguage := parts[0]
+    text := parts[1]
+
+    _, err := h.bot.SendChatAction(ctx.Message.From.Id, "typing", &gotgbot.SendChatActionOpts{})
+    if err != nil {
+        return err
+    }
+
+    translated, err := h.getTranslation(context.Background(), targetLanguage, text)
+    if err != nil {
+        return err
+    }
+
+    _, err = b.SendMessage(ctx.Message.From.Id, translated, &gotgbot.SendMessageOpts{})
+    if err != nil {
+        return err
+    }
+    return nil
+}
+
 func main() {
-	client, err := genai.NewClient(context.Background(), &genai.ClientConfig{
-		APIKey: os.Getenv("GEMINI_TOKEN"),
-	})
-	if err != nil {
-		log.Fatalf("error creating gemini client")
-	}
+    client, err := genai.NewClient(context.Background(), &genai.ClientConfig{
+        APIKey: os.Getenv("GEMINI_TOKEN"),
+    })
+    if err != nil {
+        log.Fatalf("error creating gemini client")
+    }
 	bot, err := gotgbot.NewBot(os.Getenv("TELEGRAM_BOT_TOKEN"), &gotgbot.BotOpts{})
 	if err != nil {
 		log.Fatalf("error creating bot instance: %v", err)
 	}
+
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+
 	dispatcher := ext.NewDispatcher(&ext.DispatcherOpts{
 		Error: func(b *gotgbot.Bot, ctx *ext.Context, err error) ext.DispatcherAction {
 			logger.Error("an error occurred while handling update", "error", err)
@@ -59,83 +127,15 @@ func main() {
 		},
 		MaxRoutines: ext.DefaultMaxRoutines,
 	})
+
 	updater := ext.NewUpdater(dispatcher, &ext.UpdaterOpts{})
-	dispatcher.AddHandler(handlers.NewCommand("start", func(b *gotgbot.Bot, ctx *ext.Context) error {
-		_, err := b.SendMessage(ctx.Message.From.Id, "Hello\\! I'm your friendly AI translator bot\\.\n\nTo get started, just send me a message like this:\n`Spanish Hello world`\n\nI automatically detect the language of your text\\! For more details, use the /help command\\.", &gotgbot.SendMessageOpts{
-			ParseMode: "MarkdownV2",
-		})
-		if err != nil {
-			return fmt.Errorf("failed to send start message: %w", err)
-		}
-		return nil
-	}))
-	dispatcher.AddHandler(handlers.NewCommand("help", func(b *gotgbot.Bot, ctx *ext.Context) error {
-		_, err := b.SendMessage(ctx.Message.From.Id, "To use me, send a message in the following format:\n\n`targetLanguage The text you want to translate`\n\n*I automatically detect the source language\\.*\n\nFor example:\n`French How are you?`\n\nYou can also use language codes:\n`es ¿Cómo estás?`", &gotgbot.SendMessageOpts{
-			ParseMode: "MarkdownV2",
-		})
-		if err != nil {
-			return fmt.Errorf("failed to send help message: %w", err)
-		}
-		return nil
-	}))
-	dispatcher.AddHandler(handlers.NewMessage(func(msg *gotgbot.Message) bool {
-		return !strings.HasPrefix(msg.Text, "/")
-	}, func(b *gotgbot.Bot, ctx *ext.Context) error {
-		parts := strings.SplitN(ctx.Message.Text, " ", 2)
-		if len(parts) < 2 {
-			_, err := b.SendMessage(ctx.Message.From.Id, "Invalid format\\. Please use the format: `targetLanguage text`\\.\n\nFor more information, use the /help command\\.", &gotgbot.SendMessageOpts{
-				ParseMode: "MarkdownV2",
-			})
-			if err != nil {
-				return fmt.Errorf("failed to send invalid format message: %w", err)
-			}
-			return nil
-		}
 
-		targetLanguage := parts[0]
-		text := parts[1]
+	h := &botHandler{bot: bot, client: client, logger: logger}
 
-		prompt := fmt.Sprintf(template, targetLanguage, text)
-		_, err := bot.SendChatAction(ctx.Message.From.Id, "typing", &gotgbot.SendChatActionOpts{})
-		if err != nil {
-			return err
-		}
-		done := make(chan interface{})
-		defer close(done)
-		type result struct {
-			Error  error
-			Result string
-		}
-		sendRequest := func(done <-chan interface{}, prompt string) chan result {
-			resultChan := make(chan result)
-			go func() {
-				defer close(resultChan)
-				var r result
-				res, err := client.Models.GenerateContent(context.Background(), "gemini-2.5-flash", genai.Text(prompt), nil)
-				if err != nil {
-					r.Error = err
-				}
-				r.Result = res.Text()
-				select {
-				case <-done:
-					return
-				case resultChan <- r:
-				}
-			}()
-			return resultChan
-		}
-		r := sendRequest(done, prompt)
-		for res := range r {
-			if res.Error != nil {
-				return err
-			}
-			_, err = bot.SendMessage(ctx.Message.From.Id, res.Result, &gotgbot.SendMessageOpts{})
-			if err != nil {
-				return err
-			}
-		}
-		return nil
-	}))
+	dispatcher.AddHandler(handlers.NewCommand("start", h.StartCommand))
+	dispatcher.AddHandler(handlers.NewCommand("help", h.HelpCommand))
+	dispatcher.AddHandler(handlers.NewMessage(func(msg *gotgbot.Message) bool { return !strings.HasPrefix(msg.Text, "/") }, h.MessageHandler))
+
 	err = updater.StartPolling(bot, &ext.PollingOpts{
 		DropPendingUpdates: true,
 		GetUpdatesOpts: &gotgbot.GetUpdatesOpts{
@@ -146,7 +146,7 @@ func main() {
 		},
 	})
 	if err != nil {
-		logger.Error("error getting update: ", err)
+		logger.Error("error getting update", "error", err)
 	}
 	logger.Info("Bot has started...", "bot_username", bot.Username)
 	updater.Idle()

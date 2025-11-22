@@ -8,18 +8,21 @@ A powerful, AI-driven Telegram bot that provides professional-grade translations
 
 ## 🚀 Features
 
+- **Automatic Language Detection**: The bot automatically detects the source language. No need to specify it!
 - **High-Quality Translations**: Leverages Google's state-of-the-art Gemini AI for accurate and nuanced translations.
-- **Multi-Language Support**: Translate between a vast number of languages.
-- **Context-Aware**: Provides translations that understand context, tone, and idiomatic expressions.
+- **Multi-Language Support**: Translate to a vast number of languages.
+- **Language Code Support**: Use full language names (`Spanish`) or short codes (`es`).
 - **Easy to Use**: A simple and intuitive command structure.
 - **Fast and Responsive**: Get your translations in seconds.
 
 ## 📖 Usage
 
-Interacting with the bot is simple. Just send a message in the following format:
+Using the bot is now simpler than ever! The bot automatically detects the language of your text.
+
+Just send a message in the following format:
 
 ```
-sourceLanguage->targetLanguage The text you want to translate
+targetLanguage The text you want to translate
 ```
 
 **For example:**
@@ -27,13 +30,19 @@ sourceLanguage->targetLanguage The text you want to translate
 To translate "Hello, how are you?" from English to French, you would send:
 
 ```
-English->French Hello, how are you?
+French Hello, how are you?
 ```
 
-The bot will then reply with the translated text:
+The bot will detect the text is English and reply with the French translation:
 
 ```
 Bonjour, comment ça va ?
+```
+
+You can also use language short codes:
+
+```
+es Hello, how are you?
 ```
 
 It's that easy! 🎉
@@ -53,7 +62,7 @@ To run your own instance of the Translator Bot, follow these steps.
 1.  **Clone the repository:**
 
     ```bash
-    git clone https://github.com/your-username/translator-bot.git
+    git clone https://github.com/hunderaweke/translator-bot.git
     cd translator-bot
     ```
 
@@ -100,6 +109,12 @@ Contributions are welcome! If you have ideas for new features, improvements, or 
 4.  Commit your changes (`git commit -m 'Add some feature'`).
 5.  Push to the branch (`git push origin feature/YourFeature`).
 6.  Open a Pull Request.
+
+## 👨‍💻 Author
+
+- **Hundera Aweke**
+  - GitHub: [@hunderaweke](https://github.com/hunderaweke)
+  - Telegram: [@codative](https://t.me/codative)
 
 ## 📜 License
 

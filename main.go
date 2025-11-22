@@ -19,10 +19,10 @@ import (
 const template = `SYSTEM INSTRUCTIONS 
 
 ROLE:
-You are an expert linguist and professional translator with native-level proficiency in [English] and [%s]. You specialize in [CONTEXT: e.g., casual conversation / legal documents / technical manuals / marketing copy].
+You are an expert linguist and professional translator with native-level proficiency in [%s] and [%s]. You specialize in [CONTEXT: e.g., casual conversation / legal documents / technical manuals / marketing copy].
 
 TASK:
-Translate the user's input from [English] to [%s].
+Translate the user's input from [%s] to [%s].
 
 GUIDELINES:
 1. Accuracy: Preserve the original meaning and nuance. Do not add or remove information.
@@ -30,6 +30,7 @@ GUIDELINES:
 3. Idioms: Do not translate idioms literally. Replace them with an equivalent idiom or phrase in the target language that conveys the same meaning.
 4. Cultural Nuance: Adapt cultural references so they make sense to a native speaker of the target language.
 5. False Friends: Be vigilant about "false friends" (words that look similar but have different meanings) and ensure the correct term is used.
+6. References: Make use of the references that has been mentioned and leave them where they are.
 
 FORMATTING RULES:
 - Output ONLY the translated text.
@@ -59,11 +60,11 @@ func main() {
 		MaxRoutines: ext.DefaultMaxRoutines,
 	})
 	updater := ext.NewUpdater(dispatcher, &ext.UpdaterOpts{})
-	dispatcher.AddHandler(handlers.NewCommand("translate", func(b *gotgbot.Bot, ctx *ext.Context) error {
+	dispatcher.AddHandler(handlers.NewMessage(func(msg *gotgbot.Message) bool { return true }, func(b *gotgbot.Bot, ctx *ext.Context) error {
 		parts := strings.Split(ctx.Message.Text, " ")
-		text := strings.Join(parts[2:], " ")
-		targetLanguage := parts[1]
-		prompt := fmt.Sprintf(template, targetLanguage, targetLanguage, text)
+		text := strings.Join(parts[1:], " ")
+		languages := strings.Split(parts[0], "->")
+		prompt := fmt.Sprintf(template, languages[0], languages[1], languages[0], languages[1], text)
 		_, err := bot.SendChatAction(ctx.Message.From.Id, "typing", &gotgbot.SendChatActionOpts{})
 		if err != nil {
 			return err
